@@ -1,4 +1,5 @@
 output "api_endpoint" {
-  value       = "${aws_apigatewayv2_api.lambda_api.api_endpoint}/prod/sentences/{word}"
+  value       = "${aws_api_gateway_stage.prod.invoke_url}/sentences/{word}"
   description = "API Gateway endpoint URL"
 }
+

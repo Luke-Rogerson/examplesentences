@@ -59,30 +59,55 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# API Gateway
-resource "aws_apigatewayv2_api" "lambda_api" {
-  name          = "bedrock-sentences-api"
-  protocol_type = "HTTP"
+resource "aws_api_gateway_rest_api" "lambda_api" {
+  name = "bedrock-sentences-api"
 }
 
-resource "aws_apigatewayv2_stage" "lambda_stage" {
-  api_id      = aws_apigatewayv2_api.lambda_api.id
-  name        = "prod"
-  auto_deploy = true
+resource "aws_api_gateway_resource" "sentences" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  parent_id   = aws_api_gateway_rest_api.lambda_api.root_resource_id
+  path_part   = "sentences"
 }
 
-resource "aws_apigatewayv2_integration" "lambda_integration" {
-  api_id           = aws_apigatewayv2_api.lambda_api.id
-  integration_type = "AWS_PROXY"
-
-  integration_method = "POST"
-  integration_uri    = aws_lambda_function.bedrock_sentences.invoke_arn
+resource "aws_api_gateway_resource" "word" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  parent_id   = aws_api_gateway_resource.sentences.id
+  path_part   = "{word}"
 }
 
-resource "aws_apigatewayv2_route" "lambda_route" {
-  api_id    = aws_apigatewayv2_api.lambda_api.id
-  route_key = "GET /sentences/{word}"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+resource "aws_api_gateway_method" "get_word" {
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  resource_id   = aws_api_gateway_resource.word.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "lambda_integration" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  resource_id = aws_api_gateway_resource.word.id
+  http_method = aws_api_gateway_method.get_word.http_method
+
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.bedrock_sentences.invoke_arn
+}
+
+resource "aws_api_gateway_deployment" "api_deployment" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+
+  depends_on = [
+    aws_api_gateway_integration.lambda_integration
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "prod" {
+  deployment_id = aws_api_gateway_deployment.api_deployment.id
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  stage_name    = "prod"
 }
 
 resource "aws_lambda_permission" "api_gw" {
@@ -90,5 +115,5 @@ resource "aws_lambda_permission" "api_gw" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.bedrock_sentences.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/*/*"
+  source_arn    = "${aws_api_gateway_rest_api.lambda_api.execution_arn}/*/*"
 }
