@@ -5,6 +5,7 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "s3" {}
 }
 
 provider "aws" {
@@ -14,7 +15,8 @@ provider "aws" {
     tags = {
       environment = var.environment
       managed_by  = "terraform"
-      project = var.project_name
+      project     = var.project_name
+      region      = var.aws_region
     }
   }
-} 
+}

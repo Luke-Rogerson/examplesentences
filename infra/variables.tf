@@ -5,7 +5,7 @@ variable "project_name" {
 
 variable "aws_region" {
   description = "The AWS region to deploy resources in"
-  default     = "eu-west-1"
+  default     = "us-east-1"
 }
 
 variable "environment" {
@@ -13,4 +13,17 @@ variable "environment" {
   default     = "nonprod"
 }
 
+variable "model_id" {
+  description = "The model ID to use"
+  default     = "amazon.nova-lite-v1:0"
+}
 
+variable "lambda_timeout" {
+  description = "The timeout for the lambda function"
+  default     = 10
+}
+
+variable "lambda_memory_size" {
+  description = "The memory size for the lambda function"
+  default     = 256
+}

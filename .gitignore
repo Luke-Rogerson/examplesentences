@@ -26,6 +26,8 @@ terraform.rc
 # Ignore lock files
 .terraform.lock.hcl
 
+.tfplan
+
 # Ignore any local development environment files
 .env
 .envrc
@@ -38,3 +40,5 @@ terraform.rc
 
 # Ignore log files
 *.log 
+
+lambda.zip
