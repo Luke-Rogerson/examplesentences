@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/url"
 	"os"
 	"unicode"
 
@@ -43,6 +45,11 @@ var (
 	bdrClient *bedrockruntime.Client
 )
 
+const (
+	maxWordLength = 50
+	minWordLength = 1
+)
+
 func buildPayload(word string) RequestPayload {
 	return RequestPayload{
 		InferenceConfig: InferenceConfig{
@@ -79,31 +86,42 @@ func init() {
 	bdrClient = bedrockruntime.NewFromConfig(awsConfig)
 }
 
-func validateWord(word string) error {
-	// Check length (adjust these limits as needed)
-	if len(word) < 1 {
-		return fmt.Errorf("word is empty")
+func validateWord(word string) (string, error) {
+	if len(word) < minWordLength {
+		return "", fmt.Errorf("word must be at least %d character", minWordLength)
 	}
-	if len(word) > 20 {
-		return fmt.Errorf("word exceeds maximum length of 20 characters")
+	if len(word) > maxWordLength {
+		return "", fmt.Errorf("word must not exceed %d characters", maxWordLength)
 	}
 
-	// Option 1: Allow only specific character sets (example for Chinese characters)
-	for _, r := range word {
-		if !unicode.Is(unicode.Han, r) && !unicode.IsLetter(r) {
-			return fmt.Errorf("word contains invalid characters")
+	decodedWord, err := url.QueryUnescape(word)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL encoding: %s", err.Error())
+	}
+
+	for _, r := range decodedWord {
+		if !unicode.Is(unicode.Han, r) && // Chinese characters
+			!unicode.Is(unicode.Hiragana, r) && // Japanese Hiragana
+			!unicode.Is(unicode.Katakana, r) && // Japanese Katakana
+			!unicode.Is(unicode.Hangul, r) && // Korean characters
+			!unicode.IsLetter(r) && // Latin and other alphabets
+			r != '-' && r != ' ' { // Allow hyphens and spaces
+			return "", fmt.Errorf("word contains invalid characters")
 		}
 	}
 
-	return nil
+	return decodedWord, nil
 }
 
 func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
-	// Get word from path parameters
+	log.Printf("--------------------------------")
+	log.Printf("Request URL: %s%s", request.Headers["Host"], request.Path)
+	log.Printf("--------------------------------")
+
 	word := request.PathParameters["word"]
 
-	// Validate the word
-	if err := validateWord(word); err != nil {
+	validatedWord, err := validateWord(word)
+	if err != nil {
 		return Response{
 			StatusCode: 400,
 			Headers: map[string]string{
@@ -114,7 +132,7 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	}
 
 	// Prepare the payload
-	payload := buildPayload(word)
+	payload := buildPayload(validatedWord)
 	// Convert payload to JSON
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -127,7 +145,6 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	// Invoke the model
 	output, err := bdrClient.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
 		ModelId:     aws.String("amazon.nova-lite-v1:0"),
 		ContentType: aws.String("application/json"),
@@ -144,7 +161,6 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	// Parse the response
 	var responseBody map[string]interface{}
 	if err := json.Unmarshal(output.Body, &responseBody); err != nil {
 		return Response{
@@ -156,7 +172,6 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	// Convert response to JSON string
 	responseJSON, err := json.Marshal(responseBody)
 	if err != nil {
 		return Response{
