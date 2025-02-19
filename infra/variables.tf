@@ -31,15 +31,9 @@ variable "lambda_memory_size" {
   default     = 256
 }
 
-# WAF
-variable "ip_rate_limit" {
-  description = "Number of requests allowed per IP per 5 minutes"
+# API Gateway
+variable "daily_request_limit" {
+  description = "Maximum number of API requests allowed per day"
   type        = number
   default     = 10
-}
-
-variable "daily_request_limit" {
-  description = "Total number of requests allowed per day"
-  type        = number
-  default     = 15
 }

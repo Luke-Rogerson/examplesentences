@@ -76,10 +76,11 @@ resource "aws_api_gateway_resource" "word" {
 }
 
 resource "aws_api_gateway_method" "get_word" {
-  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
-  resource_id   = aws_api_gateway_resource.word.id
-  http_method   = "GET"
-  authorization = "NONE"
+  rest_api_id      = aws_api_gateway_rest_api.lambda_api.id
+  resource_id      = aws_api_gateway_resource.word.id
+  http_method      = "GET"
+  authorization    = "NONE"
+  api_key_required = true
 }
 
 resource "aws_api_gateway_integration" "lambda_integration" {
@@ -96,8 +97,19 @@ resource "aws_api_gateway_deployment" "api_deployment" {
   rest_api_id = aws_api_gateway_rest_api.lambda_api.id
 
   depends_on = [
-    aws_api_gateway_integration.lambda_integration
+    aws_api_gateway_integration.lambda_integration,
+    aws_api_gateway_method.get_word,
+    aws_api_gateway_gateway_response.quota_exceeded
   ]
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_method.get_word.api_key_required,
+      aws_api_gateway_method.get_word.authorization,
+      aws_api_gateway_integration.lambda_integration.uri,
+      aws_api_gateway_gateway_response.quota_exceeded,
+    ]))
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -116,4 +128,45 @@ resource "aws_lambda_permission" "api_gw" {
   function_name = aws_lambda_function.bedrock_sentences.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.lambda_api.execution_arn}/*/*"
+}
+
+resource "aws_api_gateway_api_key" "sentences_api_key" {
+  name = "sentences-api-key"
+}
+
+resource "aws_api_gateway_usage_plan" "sentences_usage_plan" {
+  name = "sentences-usage-plan"
+
+  api_stages {
+    api_id = aws_api_gateway_rest_api.lambda_api.id
+    stage  = aws_api_gateway_stage.prod.stage_name
+  }
+
+  quota_settings {
+    limit  = var.daily_request_limit
+    period = "DAY"
+  }
+}
+
+resource "aws_api_gateway_usage_plan_key" "sentences_usage_plan_key" {
+  key_id        = aws_api_gateway_api_key.sentences_api_key.id
+  key_type      = "API_KEY"
+  usage_plan_id = aws_api_gateway_usage_plan.sentences_usage_plan.id
+}
+
+resource "aws_api_gateway_gateway_response" "quota_exceeded" {
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  response_type = "QUOTA_EXCEEDED"
+  status_code   = "429"
+
+  response_templates = {
+    "application/json" = jsonencode({
+      message = "Try again tomorrow (Hey, it's free and querying LLMs is expensive!)"
+      code    = "DAILY_QUOTA_EXCEEDED"
+    })
+  }
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'"
+  }
 }
