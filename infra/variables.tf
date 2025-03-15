@@ -32,6 +32,11 @@ variable "lambda_memory_size" {
 }
 
 # API Gateway
+variable "enable_request_quotas" {
+  description = "Whether to enable request quotas"
+  default     = true
+}
+
 variable "daily_request_limit" {
   description = "Maximum number of API requests allowed per day"
   type        = number

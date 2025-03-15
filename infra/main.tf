@@ -80,7 +80,7 @@ resource "aws_api_gateway_method" "get_word" {
   resource_id      = aws_api_gateway_resource.word.id
   http_method      = "GET"
   authorization    = "NONE"
-  api_key_required = true
+  api_key_required = var.enable_request_quotas ? true : false
 }
 
 resource "aws_api_gateway_integration" "lambda_integration" {
@@ -135,7 +135,8 @@ resource "aws_api_gateway_api_key" "sentences_api_key" {
 }
 
 resource "aws_api_gateway_usage_plan" "sentences_usage_plan" {
-  name = "sentences-usage-plan"
+  name  = "sentences-usage-plan"
+  count = var.enable_request_quotas ? 1 : 0
 
   api_stages {
     api_id = aws_api_gateway_rest_api.lambda_api.id
@@ -149,9 +150,10 @@ resource "aws_api_gateway_usage_plan" "sentences_usage_plan" {
 }
 
 resource "aws_api_gateway_usage_plan_key" "sentences_usage_plan_key" {
+  count         = var.enable_request_quotas ? 1 : 0
   key_id        = aws_api_gateway_api_key.sentences_api_key.id
   key_type      = "API_KEY"
-  usage_plan_id = aws_api_gateway_usage_plan.sentences_usage_plan.id
+  usage_plan_id = aws_api_gateway_usage_plan.sentences_usage_plan[0].id
 }
 
 resource "aws_api_gateway_gateway_response" "quota_exceeded" {
@@ -161,7 +163,7 @@ resource "aws_api_gateway_gateway_response" "quota_exceeded" {
 
   response_templates = {
     "application/json" = jsonencode({
-      message = "Try again tomorrow (Hey, it's free and querying LLMs is expensive!)"
+      message = "Try again tomorrow (Hey, LLMs are expensive and we're not charging you anything!)"
       code    = "DAILY_QUOTA_EXCEEDED"
     })
   }
