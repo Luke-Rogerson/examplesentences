@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 	"unicode"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -32,6 +33,17 @@ type InferenceConfig struct {
 type RequestPayload struct {
 	InferenceConfig InferenceConfig `json:"inferenceConfig"`
 	Messages        []Message       `json:"messages"`
+}
+
+type ParsedSentence struct {
+	Target        string `json:"target"`
+	English       string `json:"english"`
+	Pronunciation string `json:"pronunciation"`
+}
+
+type FormattedResponse struct {
+	Message   string           `json:"message"`
+	Sentences []ParsedSentence `json:"sentences"`
 }
 
 type Response struct {
@@ -113,6 +125,47 @@ func validateWord(word string) (string, error) {
 	return decodedWord, nil
 }
 
+func parseEntry(entry string) (*ParsedSentence, error) {
+	lines := strings.Split(strings.TrimSpace(entry), "\n")
+
+	// Check if we have exactly 3 lines
+	if len(lines) != 3 {
+		return nil, fmt.Errorf("invalid entry format: expected 3 lines, got %d", len(lines))
+	}
+
+	// Verify each line starts with the expected prefix
+	prefixes := map[string]bool{
+		"T: ": false,
+		"E: ": false,
+		"P: ": false,
+	}
+
+	sentence := &ParsedSentence{}
+
+	for _, line := range lines {
+		switch {
+		case strings.HasPrefix(line, "T: "):
+			sentence.Target = strings.TrimPrefix(line, "T: ")
+			prefixes["T: "] = true
+		case strings.HasPrefix(line, "E: "):
+			sentence.English = strings.TrimPrefix(line, "E: ")
+			prefixes["E: "] = true
+		case strings.HasPrefix(line, "P: "):
+			sentence.Pronunciation = strings.TrimPrefix(line, "P: ")
+			prefixes["P: "] = true
+		}
+	}
+
+	// Check if all prefixes were found
+	for prefix, found := range prefixes {
+		if !found {
+			return nil, fmt.Errorf("missing expected line with prefix '%s'", prefix)
+		}
+	}
+
+	return sentence, nil
+}
+
 func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
 	log.Printf("--------------------------------")
 	log.Printf("Request URL: %s%s", request.Headers["Host"], request.Path)
@@ -133,7 +186,8 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 
 	// Prepare the payload
 	payload := buildPayload(validatedWord)
-	// Convert payload to JSON
+	fmt.Printf("payload: %#v\n", payload)
+
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return Response{
@@ -172,7 +226,35 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	responseJSON, err := json.Marshal(responseBody)
+	// Extract and parse the text content
+	content := responseBody["output"].(map[string]interface{})["message"].(map[string]interface{})["content"].([]interface{})[0].(map[string]interface{})["text"].(string)
+
+	// Split the content into individual entries
+	entries := strings.Split(strings.TrimSpace(content), "\n\n")
+
+	var parsedSentences []ParsedSentence
+	var parseErrors []string
+
+	for i, entry := range entries {
+		sentence, err := parseEntry(entry)
+		if err != nil {
+			parseErrors = append(parseErrors, fmt.Sprintf("entry %d: %s", i+1, err.Error()))
+			continue
+		}
+		parsedSentences = append(parsedSentences, *sentence)
+	}
+
+	message := "Success"
+	if len(parseErrors) > 0 {
+		message = "Failed to generate examples"
+	}
+
+	formattedResponse := FormattedResponse{
+		Message:   message,
+		Sentences: parsedSentences,
+	}
+
+	responseJSON, err := json.Marshal(formattedResponse)
 	if err != nil {
 		return Response{
 			StatusCode: 500,
