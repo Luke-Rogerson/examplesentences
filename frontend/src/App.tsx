@@ -11,8 +11,20 @@ import { Card, CardContent } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { Skeleton } from './components/ui/skeleton';
 
+type Response = {
+  message: string;
+  language: string;
+  sentences: {
+    target: string;
+    english: string;
+    pronunciation: string;
+  }[];
+};
+
+const API_URL = import.meta.env.VITE_API_URL;
+const API_KEY = import.meta.env.VITE_API_KEY;
+
 export default function App() {
-  // Update the state type to match the API response structure
   const [examples, setExamples] = useState<
     {
       target: string;
@@ -26,7 +38,6 @@ export default function App() {
   const [detectedLanguage, setDetectedLanguage] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Replace the handleSearch function with this updated version that includes proper error handling
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -38,70 +49,25 @@ export default function App() {
     setDetectedLanguage('');
 
     try {
-      // In a real app, this would be your actual API endpoint
-      // const response = await fetch(`/api/examples?term=${encodeURIComponent(searchTerm)}`);
+      const response = await fetch(
+        `${API_URL}/${encodeURIComponent(searchTerm)}`
+        // {
+        //   headers: {
+        //     // This is only needed as I wanted to enforce a global daily quota and this is the easiest way to do it in API Gateway. API key is not really a secret.
+        //     'x-api-key': API_KEY,
+        //   },
+        // }
+      );
 
-      // For demonstration, we'll simulate both success and error responses
-      // Simulate an error response when the search term contains "error"
-      const simulateError = searchTerm.toLowerCase().includes('error');
+      const data: Response = await response.json();
 
-      // Mock API call with a delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      if (simulateError) {
-        // Simulate a non-200 response
-        const errorResponse = {
-          message: `Failed to find examples for "${searchTerm}". Please try a different word.`,
-        };
-        throw new Error(errorResponse.message);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch examples');
       }
 
-      // Simulate a successful response
-      const mockResponse = {
-        message: 'Success',
-        language: 'Chinese',
-        sentences: [
-          {
-            target: `${searchTerm}昨天拍了一张很漂亮的照片。`,
-            english: `I took a very beautiful photo of ${searchTerm} yesterday.`,
-            pronunciation:
-              'Wǒ zuótiān pāi le yī zhāng hěn piàoliang de zhàopiàn.',
-          },
-          {
-            target: `这张${searchTerm}是在巴黎拍摄的。`,
-            english: `This ${searchTerm} was taken in Paris.`,
-            pronunciation: 'Zhè zhāng zhàopiàn shì zài Bālí pāishè de.',
-          },
-          {
-            target: `他把${searchTerm}放在了相框里。`,
-            english: `He put the ${searchTerm} in a picture frame.`,
-            pronunciation: 'Tā bǎ zhàopiàn fàng zài le xiàngkùng lǐ.',
-          },
-          {
-            target: `她喜欢在社交媒体上分享${searchTerm}。`,
-            english: `She likes to share ${searchTerm} on social media.`,
-            pronunciation:
-              'Tā xǐhuān zài shèhuì méitǐ shàng fēnxiǎng zhàopiàn.',
-          },
-          {
-            target: `这张${searchTerm}的分辨率很高。`,
-            english: `The resolution of this ${searchTerm} is very high.`,
-            pronunciation: 'Zhè zhāng zhàopiàn de fēnbiànlǜ hěn gāo.',
-          },
-        ],
-      };
-
-      // In a real implementation with fetch, you would check response status:
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Failed to fetch examples');
-      // }
-      // const data = await response.json();
-
-      setExamples(mockResponse.sentences);
-      setDetectedLanguage(mockResponse.language);
+      setExamples(data.sentences);
+      setDetectedLanguage(data.language);
     } catch (err) {
-      // Display the error message from the API if available
       if (err instanceof Error) {
         setError(err.message);
       } else {
