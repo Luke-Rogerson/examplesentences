@@ -23,6 +23,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [detectedLanguage, setDetectedLanguage] = useState('');
 
   // Replace the handleSearch function with this updated version that includes proper error handling
   const handleSearch = async (e: React.FormEvent) => {
@@ -33,6 +34,7 @@ export default function App() {
     setLoading(true);
     setError('');
     setExamples([]);
+    setDetectedLanguage('');
 
     try {
       // In a real app, this would be your actual API endpoint
@@ -56,6 +58,7 @@ export default function App() {
       // Simulate a successful response
       const mockResponse = {
         message: 'Success',
+        language: 'Chinese',
         sentences: [
           {
             target: `${searchTerm}昨天拍了一张很漂亮的照片。`,
@@ -95,6 +98,7 @@ export default function App() {
       // const data = await response.json();
 
       setExamples(mockResponse.sentences);
+      setDetectedLanguage(mockResponse.language);
     } catch (err) {
       // Display the error message from the API if available
       if (err instanceof Error) {
@@ -118,7 +122,7 @@ export default function App() {
             Example Sentences
           </h1>
           <p className="text-muted-foreground">
-            Enter a word or phrase to see example sentences
+            Enter a word or phrase to see examples
           </p>
         </div>
 
@@ -185,6 +189,11 @@ export default function App() {
             <h2 className="text-xl font-semibold text-center">
               Examples for "{searchTerm}"
             </h2>
+            {detectedLanguage && (
+              <p className="text-center text-muted-foreground">
+                I think this is {detectedLanguage}
+              </p>
+            )}
             <div className="grid gap-4">
               {examples.map((example, index) => (
                 <Card

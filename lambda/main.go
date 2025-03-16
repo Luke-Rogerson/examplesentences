@@ -43,6 +43,7 @@ type ParsedSentence struct {
 
 type FormattedResponse struct {
 	Message   string           `json:"message"`
+	Language  string           `json:"language"`
 	Sentences []ParsedSentence `json:"sentences"`
 }
 
@@ -72,9 +73,10 @@ func buildPayload(word string) RequestPayload {
 				Role: "user",
 				Content: []Content{
 					{
-						Text: fmt.Sprintf("Generate five example sentences for '%s'.\n"+
+						Text: fmt.Sprintf("What language is '%s'? First line of your response should be 'Language: (language name in English)'.\n\n"+
+							"Then generate five example sentences for this word.\n"+
 							"Each sentence must show different usages.\n"+
-							"Format each entry as:\n"+
+							"Format each example as:\n"+
 							"T: (Target language sentence)\n"+
 							"E: (English translation)\n"+
 							"P: (Pronunciation guide)\n"+
@@ -128,12 +130,10 @@ func validateWord(word string) (string, error) {
 func parseEntry(entry string) (*ParsedSentence, error) {
 	lines := strings.Split(strings.TrimSpace(entry), "\n")
 
-	// Check if we have exactly 3 lines
 	if len(lines) != 3 {
 		return nil, fmt.Errorf("invalid entry format: expected 3 lines, got %d", len(lines))
 	}
 
-	// Verify each line starts with the expected prefix
 	prefixes := map[string]bool{
 		"T: ": false,
 		"E: ": false,
@@ -184,9 +184,7 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	// Prepare the payload
 	payload := buildPayload(validatedWord)
-	fmt.Printf("payload: %#v\n", payload)
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -226,11 +224,18 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	// Extract and parse the text content
 	content := responseBody["output"].(map[string]interface{})["message"].(map[string]interface{})["content"].([]interface{})[0].(map[string]interface{})["text"].(string)
 
-	// Split the content into individual entries
-	entries := strings.Split(strings.TrimSpace(content), "\n\n")
+	lines := strings.Split(content, "\n")
+	language := ""
+	responseContent := content
+
+	if len(lines) > 0 && strings.HasPrefix(lines[0], "Language:") {
+		language = strings.TrimSpace(strings.TrimPrefix(lines[0], "Language:"))
+		responseContent = strings.TrimSpace(strings.Join(lines[1:], "\n"))
+	}
+
+	entries := strings.Split(strings.TrimSpace(responseContent), "\n\n")
 
 	var parsedSentences []ParsedSentence
 	var parseErrors []string
@@ -251,6 +256,7 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 
 	formattedResponse := FormattedResponse{
 		Message:   message,
+		Language:  language,
 		Sentences: parsedSentences,
 	}
 
