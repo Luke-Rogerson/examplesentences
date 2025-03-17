@@ -9,3 +9,5 @@ plan:
 apply:
 	terraform -chdir=infra apply .tfplan
 
+get-api-key: # API key is only for enforcing a global daily API quota and should not be considered sensitive
+	terraform -chdir=infra output -raw api_key
