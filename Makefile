@@ -4,7 +4,7 @@ build:
 	rm bootstrap
 
 plan:
-	terraform -chdir=infra plan -var-file=envs/nonprod.tfvars -out=.tfplan
+	terraform -chdir=infra plan -var-file=envs/prod.tfvars -out=.tfplan
 
 apply:
 	terraform -chdir=infra apply .tfplan
