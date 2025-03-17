@@ -10,8 +10,8 @@ variable "aws_region" {
 }
 
 variable "environment" {
-  description = "The environment to deploy resources in"
-  default     = "nonprod"
+  description = "Environment name (e.g., 'prod', 'nonprod')"
+  type        = string
 }
 
 # Bedrock

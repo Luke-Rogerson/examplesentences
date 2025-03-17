@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "bedrock_sentences" {
   filename         = "../lambda.zip"
-  function_name    = "bedrock-sentences"
+  function_name    = "${local.name_env_prefix}-backend"
   role             = aws_iam_role.lambda_role.arn
   handler          = "bootstrap"
   source_code_hash = filebase64sha256("../lambda.zip")
@@ -20,7 +20,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 }
 
 resource "aws_iam_role" "lambda_role" {
-  name = "bedrock_sentences_lambda_role"
+  name = "${local.name_env_prefix}-bedrock-sentences-lambda-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -37,7 +37,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 resource "aws_iam_role_policy" "bedrock_policy" {
-  name = "bedrock_access"
+  name = "${local.name_env_prefix}-bedrock-access"
   role = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
@@ -60,7 +60,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 }
 
 resource "aws_api_gateway_rest_api" "lambda_api" {
-  name = "bedrock-sentences-api"
+  name = "${local.name_env_prefix}-rest-api"
 }
 
 resource "aws_api_gateway_resource" "word" {
@@ -126,11 +126,11 @@ resource "aws_lambda_permission" "api_gw" {
 }
 
 resource "aws_api_gateway_api_key" "sentences_api_key" {
-  name = "sentences-api-key"
+  name = "${local.name_env_prefix}-api-key"
 }
 
 resource "aws_api_gateway_usage_plan" "sentences_usage_plan" {
-  name  = "sentences-usage-plan"
+  name  = "${local.name_env_prefix}-usage-plan"
   count = var.enable_request_quotas ? 1 : 0
 
   api_stages {
