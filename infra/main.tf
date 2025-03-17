@@ -172,3 +172,30 @@ resource "aws_api_gateway_gateway_response" "quota_exceeded" {
     "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'"
   }
 }
+
+resource "aws_acm_certificate" "backend_cert" {
+  domain_name       = var.backend_domain
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_domain_name" "backend_domain" {
+  domain_name              = var.backend_domain
+  regional_certificate_arn = aws_acm_certificate.backend_cert.arn
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+
+  depends_on = [aws_acm_certificate.backend_cert]
+}
+
+resource "aws_api_gateway_base_path_mapping" "backend_mapping" {
+  api_id      = aws_api_gateway_rest_api.lambda_api.id
+  stage_name  = aws_api_gateway_stage.prod.stage_name
+  domain_name = aws_api_gateway_domain_name.backend_domain.domain_name
+  base_path   = "" # Empty string means root path
+}
