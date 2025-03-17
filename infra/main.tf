@@ -63,15 +63,9 @@ resource "aws_api_gateway_rest_api" "lambda_api" {
   name = "bedrock-sentences-api"
 }
 
-resource "aws_api_gateway_resource" "sentences" {
-  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
-  parent_id   = aws_api_gateway_rest_api.lambda_api.root_resource_id
-  path_part   = "sentences"
-}
-
 resource "aws_api_gateway_resource" "word" {
   rest_api_id = aws_api_gateway_rest_api.lambda_api.id
-  parent_id   = aws_api_gateway_resource.sentences.id
+  parent_id   = aws_api_gateway_rest_api.lambda_api.root_resource_id
   path_part   = "{word}"
 }
 
@@ -108,6 +102,7 @@ resource "aws_api_gateway_deployment" "api_deployment" {
       aws_api_gateway_method.get_word.authorization,
       aws_api_gateway_integration.lambda_integration.uri,
       aws_api_gateway_gateway_response.quota_exceeded,
+      aws_api_gateway_resource.word.path_part,
     ]))
   }
 
