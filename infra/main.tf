@@ -77,6 +77,13 @@ resource "aws_api_gateway_method" "get_word" {
   api_key_required = var.enable_request_quotas ? true : false
 }
 
+resource "aws_api_gateway_method" "options_word" {
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  resource_id   = aws_api_gateway_resource.word.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
 resource "aws_api_gateway_integration" "lambda_integration" {
   rest_api_id = aws_api_gateway_rest_api.lambda_api.id
   resource_id = aws_api_gateway_resource.word.id
@@ -87,13 +94,41 @@ resource "aws_api_gateway_integration" "lambda_integration" {
   uri                     = aws_lambda_function.bedrock_sentences.invoke_arn
 }
 
+resource "aws_api_gateway_integration" "options_integration" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  resource_id = aws_api_gateway_resource.word.id
+  http_method = aws_api_gateway_method.options_word.http_method
+
+  type = "MOCK"
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "options_integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  resource_id = aws_api_gateway_resource.word.id
+  http_method = aws_api_gateway_method.options_word.http_method
+  status_code = aws_api_gateway_method_response.options_200.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'",
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+  }
+}
+
 resource "aws_api_gateway_deployment" "api_deployment" {
   rest_api_id = aws_api_gateway_rest_api.lambda_api.id
 
   depends_on = [
     aws_api_gateway_integration.lambda_integration,
     aws_api_gateway_method.get_word,
-    aws_api_gateway_gateway_response.quota_exceeded
+    aws_api_gateway_gateway_response.quota_exceeded,
+    aws_api_gateway_integration.options_integration,
+    aws_api_gateway_method.options_word,
+    aws_api_gateway_method_response.options_200,
+    aws_api_gateway_integration_response.options_integration_response
   ]
 
   triggers = {
@@ -103,11 +138,39 @@ resource "aws_api_gateway_deployment" "api_deployment" {
       aws_api_gateway_integration.lambda_integration.uri,
       aws_api_gateway_gateway_response.quota_exceeded,
       aws_api_gateway_resource.word.path_part,
+      aws_api_gateway_method.options_word.http_method,
+      aws_api_gateway_integration.options_integration.type,
+      aws_api_gateway_method_response.options_200.response_parameters,
+      aws_api_gateway_integration_response.options_integration_response.response_parameters
     ]))
   }
 
   lifecycle {
     create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_method_response" "options_200" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  resource_id = aws_api_gateway_resource.word.id
+  http_method = aws_api_gateway_method.options_word.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true,
+    "method.response.header.Access-Control-Allow-Methods" = true,
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+resource "aws_api_gateway_method_response" "get_200" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  resource_id = aws_api_gateway_resource.word.id
+  http_method = aws_api_gateway_method.get_word.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin" = true
   }
 }
 
@@ -158,7 +221,7 @@ resource "aws_api_gateway_gateway_response" "quota_exceeded" {
 
   response_templates = {
     "application/json" = jsonencode({
-      message = "Try again tomorrow (Hey, LLMs are expensive and we're not charging you anything!)"
+      message = "DAILY_QUOTA_EXCEEDED - Try again tomorrow (Hey, LLMs are expensive and we're not charging you anything!)"
       code    = "DAILY_QUOTA_EXCEEDED"
     })
   }
@@ -168,14 +231,7 @@ resource "aws_api_gateway_gateway_response" "quota_exceeded" {
   }
 }
 
-resource "aws_acm_certificate" "backend_cert" {
-  domain_name       = var.backend_domain
-  validation_method = "DNS"
 
-  lifecycle {
-    create_before_destroy = true
-  }
-}
 
 resource "aws_api_gateway_domain_name" "backend_domain" {
   domain_name              = var.backend_domain
@@ -193,4 +249,13 @@ resource "aws_api_gateway_base_path_mapping" "backend_mapping" {
   stage_name  = aws_api_gateway_stage.prod.stage_name
   domain_name = aws_api_gateway_domain_name.backend_domain.domain_name
   base_path   = "" # Empty string means root path
+}
+
+resource "aws_acm_certificate" "backend_cert" {
+  domain_name       = var.backend_domain
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }

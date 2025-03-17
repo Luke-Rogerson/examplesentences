@@ -167,9 +167,9 @@ func parseEntry(entry string) (*ParsedSentence, error) {
 }
 
 func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
-	log.Printf("--------------------------------")
-	log.Printf("Request URL: %s%s", request.Headers["Host"], request.Path)
-	log.Printf("--------------------------------")
+
+	// print user IP
+	log.Printf("👤 User IP: %s", request.RequestContext.Identity.SourceIP)
 
 	word := request.PathParameters["word"]
 
@@ -183,6 +183,8 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 			Body: fmt.Sprintf(`{"error": "Invalid word: %s"}`, err.Error()),
 		}, nil
 	}
+
+	log.Printf("🔗 Word queried: %s", validatedWord)
 
 	payload := buildPayload(validatedWord)
 
@@ -212,6 +214,8 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 			Body: fmt.Sprintf(`{"error": "%s"}`, err.Error()),
 		}, nil
 	}
+
+	log.Printf("📤 Model output: %s", string(output.Body))
 
 	var responseBody map[string]interface{}
 	if err := json.Unmarshal(output.Body, &responseBody); err != nil {
@@ -274,8 +278,9 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	return Response{
 		StatusCode: 200,
 		Headers: map[string]string{
-			"Content-Type":                "application/json",
-			"Access-Control-Allow-Origin": "*",
+			"Content-Type":                 "application/json",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Headers": "x-api-key",
 		},
 		Body: string(responseJSON),
 	}, nil

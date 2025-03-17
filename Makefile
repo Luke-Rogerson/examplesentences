@@ -11,3 +11,6 @@ apply:
 
 get-api-key: # API key is only for enforcing a global daily API quota and should not be considered sensitive
 	terraform -chdir=infra output -raw api_key
+
+start-frontend-dev:
+	cd frontend && pnpm dev

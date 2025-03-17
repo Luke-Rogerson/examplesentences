@@ -50,13 +50,13 @@ export default function App() {
 
     try {
       const response = await fetch(
-        `${API_URL}/${encodeURIComponent(searchTerm)}`
-        // {
-        //   headers: {
-        //     // This is only needed as I wanted to enforce a global daily quota and this is the easiest way to do it in API Gateway. API key is not really a secret.
-        //     'x-api-key': API_KEY,
-        //   },
-        // }
+        `${API_URL}/${encodeURIComponent(searchTerm)}`,
+        {
+          headers: {
+            // This is only needed as I wanted to enforce a global daily quota and this is the easiest way to do it in API Gateway. API key is not really a secret.
+            'x-api-key': API_KEY,
+          },
+        }
       );
 
       const data: Response = await response.json();
@@ -68,6 +68,9 @@ export default function App() {
       setExamples(data.sentences);
       setDetectedLanguage(data.language);
     } catch (err) {
+      console.log('--------------------------------');
+      console.log('err :', err);
+      console.log('--------------------------------');
       if (err instanceof Error) {
         setError(err.message);
       } else {
