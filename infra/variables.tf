@@ -45,5 +45,4 @@ variable "daily_request_limit" {
 
 variable "backend_domain" {
   description = "The domain name for the backend"
-  default     = "backend.examplesentences.com"
 }
