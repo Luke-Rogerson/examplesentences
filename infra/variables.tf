@@ -37,10 +37,16 @@ variable "enable_request_quotas" {
   default     = true
 }
 
+variable "lambda_concurrent_executions" {
+  description = "Maximum number of concurrent executions for the lambda function"
+  type        = number
+  default     = 5
+}
+
 variable "daily_request_limit" {
   description = "Maximum number of API requests allowed per day"
   type        = number
-  default     = 10
+  default     = 500
 }
 
 variable "backend_domain" {
