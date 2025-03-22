@@ -31,16 +31,16 @@ variable "lambda_memory_size" {
   default     = 256
 }
 
-# API Gateway
-variable "enable_request_quotas" {
-  description = "Whether to enable request quotas"
-  default     = true
-}
-
 variable "lambda_concurrent_executions" {
   description = "Maximum number of concurrent executions for the lambda function"
   type        = number
   default     = 5
+}
+
+# API Gateway
+variable "enable_request_quotas" {
+  description = "Whether to enable request quotas"
+  default     = true
 }
 
 variable "daily_request_limit" {
@@ -59,6 +59,7 @@ variable "backend_domain" {
   description = "The domain name for the backend"
 }
 
+# CloudWatch
 variable "cloudwatch_retention_days" {
   description = "The number of days to retain CloudWatch logs"
   type        = number
