@@ -64,7 +64,7 @@ resource "aws_api_gateway_rest_api" "lambda_api" {
   name = "${local.name_env_prefix}-rest-api"
 
   endpoint_configuration {
-    types = ["EDGE"]
+    types = ["REGIONAL"]
   }
 }
 
@@ -280,6 +280,10 @@ resource "aws_api_gateway_gateway_response" "lambda_throttled_explicit" {
 resource "aws_api_gateway_domain_name" "backend_domain" {
   domain_name              = var.backend_domain
   regional_certificate_arn = aws_acm_certificate.backend_cert.arn
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
 
   depends_on = [aws_acm_certificate.backend_cert]
 }
