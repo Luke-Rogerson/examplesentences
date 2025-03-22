@@ -62,6 +62,10 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 
 resource "aws_api_gateway_rest_api" "lambda_api" {
   name = "${local.name_env_prefix}-rest-api"
+
+  endpoint_configuration {
+    types = ["EDGE"]
+  }
 }
 
 resource "aws_api_gateway_resource" "word" {
@@ -138,11 +142,12 @@ resource "aws_api_gateway_deployment" "api_deployment" {
       aws_api_gateway_method.get_word.authorization,
       aws_api_gateway_integration.lambda_integration.uri,
       aws_api_gateway_gateway_response.quota_exceeded,
+      aws_api_gateway_gateway_response.lambda_throttled,
+      aws_api_gateway_gateway_response.lambda_throttled_explicit,
       aws_api_gateway_resource.word.path_part,
       aws_api_gateway_method.options_word.http_method,
       aws_api_gateway_integration.options_integration.type,
       aws_api_gateway_method_response.options_200.response_parameters,
-      aws_api_gateway_integration_response.options_integration_response.response_parameters
     ]))
   }
 
@@ -206,6 +211,11 @@ resource "aws_api_gateway_usage_plan" "sentences_usage_plan" {
     limit  = var.daily_request_limit
     period = "DAY"
   }
+
+  throttle_settings {
+    rate_limit  = var.rate_limit
+    burst_limit = var.rate_limit * 3
+  }
 }
 
 resource "aws_api_gateway_usage_plan_key" "sentences_usage_plan_key" {
@@ -218,7 +228,7 @@ resource "aws_api_gateway_usage_plan_key" "sentences_usage_plan_key" {
 resource "aws_api_gateway_gateway_response" "quota_exceeded" {
   rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
   response_type = "QUOTA_EXCEEDED"
-  status_code   = "429"
+  status_code   = "430"
 
   response_templates = {
     "application/json" = jsonencode({
@@ -232,15 +242,44 @@ resource "aws_api_gateway_gateway_response" "quota_exceeded" {
   }
 }
 
+resource "aws_api_gateway_gateway_response" "lambda_throttled" {
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  response_type = "INTEGRATION_FAILURE"
+  status_code   = "429"
+
+  response_templates = {
+    "application/json" = jsonencode({
+      message = "RATE_LIMIT_EXCEEDED - Slow down, sir. Remember this is a free service."
+      code    = "RATE_LIMIT_EXCEEDED"
+    })
+  }
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'"
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "lambda_throttled_explicit" {
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  response_type = "THROTTLED"
+  status_code   = "429"
+
+  response_templates = {
+    "application/json" = jsonencode({
+      message = "THROTTLED - Ease up. Remember this is a free service."
+      code    = "THROTTLED"
+    })
+  }
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'"
+  }
+}
 
 
 resource "aws_api_gateway_domain_name" "backend_domain" {
   domain_name              = var.backend_domain
   regional_certificate_arn = aws_acm_certificate.backend_cert.arn
-
-  endpoint_configuration {
-    types = ["REGIONAL"]
-  }
 
   depends_on = [aws_acm_certificate.backend_cert]
 }

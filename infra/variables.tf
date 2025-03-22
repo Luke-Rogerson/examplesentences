@@ -49,6 +49,12 @@ variable "daily_request_limit" {
   default     = 500
 }
 
+variable "rate_limit" {
+  description = "Maximum number of API requests allowed per second"
+  type        = number
+  default     = 2
+}
+
 variable "backend_domain" {
   description = "The domain name for the backend"
 }
