@@ -33,6 +33,7 @@ export default function App() {
     }[]
   >([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [lastSearchedTerm, setLastSearchedTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [detectedLanguage, setDetectedLanguage] = useState('');
@@ -45,8 +46,7 @@ export default function App() {
 
     setLoading(true);
     setError('');
-    setExamples([]);
-    setDetectedLanguage('');
+    setLastSearchedTerm(searchTerm);
 
     try {
       const response = await fetch(
@@ -182,7 +182,8 @@ export default function App() {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-center">
               Examples for "
-              <span className="text-primary font-bold">{searchTerm}</span>"
+              <span className="text-primary font-bold">{lastSearchedTerm}</span>
+              "
             </h2>
             {detectedLanguage && (
               <div className="flex justify-center">
