@@ -58,3 +58,9 @@ variable "rate_limit" {
 variable "backend_domain" {
   description = "The domain name for the backend"
 }
+
+variable "cloudwatch_retention_days" {
+  description = "The number of days to retain CloudWatch logs"
+  type        = number
+  default     = 3
+}

@@ -1,65 +1,3 @@
-resource "aws_lambda_function" "bedrock_sentences" {
-  filename                       = "../lambda.zip"
-  function_name                  = "${local.name_env_prefix}-backend"
-  role                           = aws_iam_role.lambda_role.arn
-  handler                        = "bootstrap"
-  source_code_hash               = filebase64sha256("../lambda.zip")
-  runtime                        = "provided.al2"
-  timeout                        = var.lambda_timeout
-  memory_size                    = var.lambda_memory_size
-  reserved_concurrent_executions = var.lambda_concurrent_executions
-  environment {
-    variables = {
-      MODEL_ID = var.model_id
-    }
-  }
-}
-
-resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/${aws_lambda_function.bedrock_sentences.function_name}"
-  retention_in_days = 1
-}
-
-resource "aws_iam_role" "lambda_role" {
-  name = "${local.name_env_prefix}-bedrock-sentences-lambda-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "bedrock_policy" {
-  name = "${local.name_env_prefix}-bedrock-access"
-  role = aws_iam_role.lambda_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel"
-        ]
-        Resource = ["arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0"]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
 resource "aws_api_gateway_rest_api" "lambda_api" {
   name = "${local.name_env_prefix}-rest-api"
 
@@ -293,13 +231,4 @@ resource "aws_api_gateway_base_path_mapping" "backend_mapping" {
   stage_name  = aws_api_gateway_stage.prod.stage_name
   domain_name = aws_api_gateway_domain_name.backend_domain.domain_name
   base_path   = "" # Empty string means root path
-}
-
-resource "aws_acm_certificate" "backend_cert" {
-  domain_name       = var.backend_domain
-  validation_method = "DNS"
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
