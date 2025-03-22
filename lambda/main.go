@@ -172,15 +172,10 @@ func parseEntry(entry string) (*ParsedSentence, error) {
 	return sentence, nil
 }
 
-func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
-
-	log.Printf("👤 User IP: %s", request.RequestContext.Identity.SourceIP)
-
-	word := request.PathParameters["word"]
-
-	validatedWord, err := validateWord(word)
+// handleResponse creates a consistent API response with proper error handling
+func handleResponse(statusCode int, data interface{}, err error) Response {
 	if err != nil {
-		log.Printf("🔴 Invalid word: %s", err.Error())
+		// For error responses
 		errorResponse := FormattedResponse{
 			Message:   err.Error(),
 			Language:  "",
@@ -194,14 +189,43 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 				StatusCode: 500,
 				Headers:    headers,
 				Body:       `{"message":"Internal server error","language":"","sentences":[]}`,
-			}, nil
+			}
 		}
 
 		return Response{
-			StatusCode: 400,
+			StatusCode: statusCode,
 			Headers:    headers,
 			Body:       string(errorJSON),
-		}, nil
+		}
+	}
+
+	// For success responses
+	responseJSON, jsonErr := json.Marshal(data)
+	if jsonErr != nil {
+		log.Printf("🔴 Error marshalling success response: %s", jsonErr.Error())
+		return Response{
+			StatusCode: 500,
+			Headers:    headers,
+			Body:       `{"message":"Internal server error","language":"","sentences":[]}`,
+		}
+	}
+
+	return Response{
+		StatusCode: statusCode,
+		Headers:    headers,
+		Body:       string(responseJSON),
+	}
+}
+
+func handler(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
+	log.Printf("👤 User IP: %s", request.RequestContext.Identity.SourceIP)
+
+	word := request.PathParameters["word"]
+
+	validatedWord, err := validateWord(word)
+	if err != nil {
+		log.Printf("🔴 Invalid word: %s", err.Error())
+		return handleResponse(400, nil, err), nil
 	}
 
 	log.Printf("🔗 Word queried: %s", validatedWord)
@@ -211,11 +235,7 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("🔴 Error marshalling payload: %s", err.Error())
-		return Response{
-			StatusCode: 500,
-			Headers:    headers,
-			Body:       fmt.Sprintf(`{"message": "%s"}`, err.Error()),
-		}, nil
+		return handleResponse(500, nil, err), nil
 	}
 
 	output, err := bdrClient.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
@@ -226,11 +246,7 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	})
 	if err != nil {
 		log.Printf("🔴 Error invoking model: %s", err.Error())
-		return Response{
-			StatusCode: 500,
-			Headers:    headers,
-			Body:       fmt.Sprintf(`{"message": "%s"}`, err.Error()),
-		}, nil
+		return handleResponse(500, nil, err), nil
 	}
 
 	log.Printf("📤 Model output: %s", string(output.Body))
@@ -238,13 +254,7 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	var responseBody map[string]interface{}
 	if err := json.Unmarshal(output.Body, &responseBody); err != nil {
 		log.Printf("🔴 Error unmarshalling model output: %s", err.Error())
-		return Response{
-			StatusCode: 500,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: fmt.Sprintf(`{"message": "%s"}`, err.Error()),
-		}, nil
+		return handleResponse(500, nil, err), nil
 	}
 
 	content := responseBody["output"].(map[string]interface{})["message"].(map[string]interface{})["content"].([]interface{})[0].(map[string]interface{})["text"].(string)
@@ -283,23 +293,9 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		Sentences: parsedSentences,
 	}
 
-	responseJSON, err := json.Marshal(formattedResponse)
-	if err != nil {
-		log.Printf("🔴 Error marshalling formatted response: %s", err.Error())
-		return Response{
-			StatusCode: 500,
-			Headers:    headers,
-			Body:       fmt.Sprintf(`{"message": "%s"}`, err.Error()),
-		}, nil
-	}
-
-	return Response{
-		StatusCode: 200,
-		Headers:    headers,
-		Body:       string(responseJSON),
-	}, nil
+	return handleResponse(200, formattedResponse, nil), nil
 }
 
 func main() {
-	lambda.Start(handleRequest)
+	lambda.Start(handler)
 }
