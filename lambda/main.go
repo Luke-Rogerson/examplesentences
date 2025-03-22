@@ -67,6 +67,13 @@ var headers = map[string]string{
 	"Content-Type":                 "application/json",
 	"Access-Control-Allow-Origin":  "*",
 	"Access-Control-Allow-Headers": "x-api-key",
+	"X-Content-Type-Options":       "nosniff",
+	"Strict-Transport-Security":    "max-age=31536000; includeSubDomains",
+	"X-XSS-Protection":             "1; mode=block",
+	"Content-Security-Policy":      "default-src 'none'",
+	"X-Frame-Options":              "DENY",
+	"Referrer-Policy":              "no-referrer",
+	"Cache-Control":                "no-store, max-age=0",
 }
 
 func buildPayload(word string) RequestPayload {
@@ -107,6 +114,13 @@ func init() {
 }
 
 func validateWord(word string) (string, error) {
+	word = strings.TrimSpace(word)
+
+	// Check for empty input after trimming
+	if word == "" {
+		return "", fmt.Errorf("word cannot be empty")
+	}
+
 	if len(word) < minWordLength {
 		return "", fmt.Errorf("%q must be at least %d character", word, minWordLength)
 	}
@@ -119,15 +133,37 @@ func validateWord(word string) (string, error) {
 		return "", fmt.Errorf("invalid URL encoding: %s", err.Error())
 	}
 
+	// Prevent any potential HTML/script injection
+	if strings.Contains(decodedWord, "<") || strings.Contains(decodedWord, ">") {
+		return "", fmt.Errorf("%q contains invalid characters", decodedWord)
+	}
+
+	// Prevent SQL injection attempts
+	sqlInjectionPatterns := []string{"SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "UNION", "--", ";"}
+	for _, pattern := range sqlInjectionPatterns {
+		if strings.Contains(strings.ToUpper(decodedWord), pattern) {
+			return "", fmt.Errorf("%q contains invalid patterns", decodedWord)
+		}
+	}
+
+	// Validate each character
 	for _, r := range decodedWord {
 		if !unicode.Is(unicode.Han, r) && // Chinese characters
 			!unicode.Is(unicode.Hiragana, r) && // Japanese Hiragana
 			!unicode.Is(unicode.Katakana, r) && // Japanese Katakana
 			!unicode.Is(unicode.Hangul, r) && // Korean characters
 			!unicode.IsLetter(r) && // Latin and other alphabets
-			r != '-' && r != ' ' { // Allow hyphens and spaces
-			return "", fmt.Errorf("%q contains invalid characters", word)
+			!unicode.IsSpace(r) && // Allow spaces
+			r != '-' && // Allow hyphens
+			r != '\'' && // Allow apostrophes
+			r != '"' { // Allow quotes
+			return "", fmt.Errorf("%q contains invalid characters", decodedWord)
 		}
+	}
+
+	// Limit consecutive special characters
+	if strings.Contains(decodedWord, "---") || strings.Contains(decodedWord, "   ") {
+		return "", fmt.Errorf("%q contains too many consecutive special characters", decodedWord)
 	}
 
 	return decodedWord, nil
@@ -172,10 +208,8 @@ func parseEntry(entry string) (*ParsedSentence, error) {
 	return sentence, nil
 }
 
-// handleResponse creates a consistent API response with proper error handling
 func handleResponse(statusCode int, data interface{}, err error) Response {
 	if err != nil {
-		// For error responses
 		errorResponse := FormattedResponse{
 			Message:   err.Error(),
 			Language:  "",
@@ -199,7 +233,6 @@ func handleResponse(statusCode int, data interface{}, err error) Response {
 		}
 	}
 
-	// For success responses
 	responseJSON, jsonErr := json.Marshal(data)
 	if jsonErr != nil {
 		log.Printf("🔴 Error marshalling success response: %s", jsonErr.Error())
