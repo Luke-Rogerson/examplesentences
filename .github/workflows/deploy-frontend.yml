@@ -40,6 +40,9 @@ jobs:
         run: cd frontend && pnpm install
       - name: Build
         run: cd frontend && pnpm build
+        env:
+          VITE_API_URL: https://backend.examplesentences.com
+          VITE_API_KEY: ${{ secrets.API_KEY }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
