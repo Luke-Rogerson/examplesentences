@@ -59,9 +59,15 @@ var (
 )
 
 const (
-	maxWordLength = 50
+	maxWordLength = 30
 	minWordLength = 1
 )
+
+var headers = map[string]string{
+	"Content-Type":                 "application/json",
+	"Access-Control-Allow-Origin":  "*",
+	"Access-Control-Allow-Headers": "x-api-key",
+}
 
 func buildPayload(word string) RequestPayload {
 	return RequestPayload{
@@ -102,10 +108,10 @@ func init() {
 
 func validateWord(word string) (string, error) {
 	if len(word) < minWordLength {
-		return "", fmt.Errorf("word must be at least %d character", minWordLength)
+		return "", fmt.Errorf("%q must be at least %d character", word, minWordLength)
 	}
 	if len(word) > maxWordLength {
-		return "", fmt.Errorf("word must not exceed %d characters", maxWordLength)
+		return "", fmt.Errorf("%q must not exceed %d characters", word, maxWordLength)
 	}
 
 	decodedWord, err := url.QueryUnescape(word)
@@ -120,7 +126,7 @@ func validateWord(word string) (string, error) {
 			!unicode.Is(unicode.Hangul, r) && // Korean characters
 			!unicode.IsLetter(r) && // Latin and other alphabets
 			r != '-' && r != ' ' { // Allow hyphens and spaces
-			return "", fmt.Errorf("word contains invalid characters")
+			return "", fmt.Errorf("%q contains invalid characters", word)
 		}
 	}
 
@@ -168,19 +174,33 @@ func parseEntry(entry string) (*ParsedSentence, error) {
 
 func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
 
-	// print user IP
 	log.Printf("👤 User IP: %s", request.RequestContext.Identity.SourceIP)
 
 	word := request.PathParameters["word"]
 
 	validatedWord, err := validateWord(word)
 	if err != nil {
+		log.Printf("🔴 Invalid word: %s", err.Error())
+		errorResponse := FormattedResponse{
+			Message:   err.Error(),
+			Language:  "",
+			Sentences: []ParsedSentence{},
+		}
+
+		errorJSON, jsonErr := json.Marshal(errorResponse)
+		if jsonErr != nil {
+			log.Printf("🔴 Error marshalling error response: %s", jsonErr.Error())
+			return Response{
+				StatusCode: 500,
+				Headers:    headers,
+				Body:       `{"message":"Internal server error","language":"","sentences":[]}`,
+			}, nil
+		}
+
 		return Response{
 			StatusCode: 400,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: fmt.Sprintf(`{"error": "Invalid word: %s"}`, err.Error()),
+			Headers:    headers,
+			Body:       string(errorJSON),
 		}, nil
 	}
 
@@ -190,12 +210,11 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
+		log.Printf("🔴 Error marshalling payload: %s", err.Error())
 		return Response{
 			StatusCode: 500,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: fmt.Sprintf(`{"error": "%s"}`, err.Error()),
+			Headers:    headers,
+			Body:       fmt.Sprintf(`{"message": "%s"}`, err.Error()),
 		}, nil
 	}
 
@@ -206,12 +225,11 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		Body:        payloadBytes,
 	})
 	if err != nil {
+		log.Printf("🔴 Error invoking model: %s", err.Error())
 		return Response{
 			StatusCode: 500,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: fmt.Sprintf(`{"error": "%s"}`, err.Error()),
+			Headers:    headers,
+			Body:       fmt.Sprintf(`{"message": "%s"}`, err.Error()),
 		}, nil
 	}
 
@@ -219,12 +237,13 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 
 	var responseBody map[string]interface{}
 	if err := json.Unmarshal(output.Body, &responseBody); err != nil {
+		log.Printf("🔴 Error unmarshalling model output: %s", err.Error())
 		return Response{
 			StatusCode: 500,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
 			},
-			Body: fmt.Sprintf(`{"error": "%s"}`, err.Error()),
+			Body: fmt.Sprintf(`{"message": "%s"}`, err.Error()),
 		}, nil
 	}
 
@@ -266,23 +285,18 @@ func handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 
 	responseJSON, err := json.Marshal(formattedResponse)
 	if err != nil {
+		log.Printf("🔴 Error marshalling formatted response: %s", err.Error())
 		return Response{
 			StatusCode: 500,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: fmt.Sprintf(`{"error": "%s"}`, err.Error()),
+			Headers:    headers,
+			Body:       fmt.Sprintf(`{"message": "%s"}`, err.Error()),
 		}, nil
 	}
 
 	return Response{
 		StatusCode: 200,
-		Headers: map[string]string{
-			"Content-Type":                 "application/json",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Headers": "x-api-key",
-		},
-		Body: string(responseJSON),
+		Headers:    headers,
+		Body:       string(responseJSON),
 	}, nil
 }
 
