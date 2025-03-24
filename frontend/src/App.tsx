@@ -132,6 +132,7 @@ export default function App() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1"
+              autoFocus
             />
             <Button type="submit" disabled={loading}>
               {loading ? (
