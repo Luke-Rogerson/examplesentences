@@ -121,16 +121,16 @@ func validateWord(word string) (string, error) {
 		return "", fmt.Errorf("word cannot be empty")
 	}
 
-	if len(word) < minWordLength {
-		return "", fmt.Errorf("%q must be at least %d character", word, minWordLength)
-	}
-	if len(word) > maxWordLength {
-		return "", fmt.Errorf("%q must not exceed %d characters", word, maxWordLength)
-	}
-
 	decodedWord, err := url.QueryUnescape(word)
 	if err != nil {
 		return "", fmt.Errorf("invalid URL encoding: %s", err.Error())
+	}
+
+	if len(decodedWord) < minWordLength {
+		return "", fmt.Errorf("%q must be at least %d character", decodedWord, minWordLength)
+	}
+	if len(decodedWord) > maxWordLength {
+		return "", fmt.Errorf("%q must not exceed %d characters", decodedWord, maxWordLength)
 	}
 
 	// Prevent any potential HTML/script injection
@@ -148,16 +148,15 @@ func validateWord(word string) (string, error) {
 
 	// Validate each character
 	for _, r := range decodedWord {
-		if !unicode.Is(unicode.Han, r) && // Chinese characters
-			!unicode.Is(unicode.Hiragana, r) && // Japanese Hiragana
-			!unicode.Is(unicode.Katakana, r) && // Japanese Katakana
-			!unicode.Is(unicode.Hangul, r) && // Korean characters
-			!unicode.IsLetter(r) && // Latin and other alphabets
-			!unicode.IsSpace(r) && // Allow spaces
-			r != '-' && // Allow hyphens
-			r != '\'' && // Allow apostrophes
-			r != '"' { // Allow quotes
-			return "", fmt.Errorf("%q contains invalid characters", decodedWord)
+		// Allow any letter from any script, any mark (diacritics, etc),
+		// and a small set of allowed punctuation
+		if !unicode.IsLetter(r) && // Letters from any script
+			!unicode.IsMark(r) && // Combining marks, spacing marks, enclosing marks
+			!unicode.IsSpace(r) && // Spaces
+			r != '-' && // Hyphens
+			r != '\'' && // Apostrophes
+			r != '"' { // Quotes
+			return "", fmt.Errorf("%q contains invalid characters (only letters, spaces, and basic punctuation are allowed)", decodedWord)
 		}
 	}
 
