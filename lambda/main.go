@@ -299,7 +299,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (Respon
 		return handleResponse(500, nil, err), nil
 	}
 
-	go sendTelegramNotification(fmt.Sprintf("🔗 Requested word: %s --- 👤 User IP: %s", validatedWord, request.RequestContext.Identity.SourceIP))
+	go sendTelegramNotification(fmt.Sprintf("🔗 Requested word: %s --- 👤 User IP: https://whatismyipaddress.com/ip/%s", validatedWord, request.RequestContext.Identity.SourceIP))
 	output, err := bdrClient.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
 		ModelId:     aws.String("amazon.nova-lite-v1:0"),
 		ContentType: aws.String("application/json"),
