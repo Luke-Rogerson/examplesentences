@@ -4,7 +4,7 @@ build:
 	rm bootstrap
 
 plan:
-	terraform -chdir=infra plan -var-file=envs/prod.tfvars -out=.tfplan
+	terraform -chdir=infra plan -var-file=envs/prod.tfvars -out=.tfplan -var "telegram_bot_token=$(TELEGRAM_BOT_TOKEN)" -var "telegram_chat_id=$(TELEGRAM_CHAT_ID)"
 
 apply:
 	terraform -chdir=infra apply .tfplan

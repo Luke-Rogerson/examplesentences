@@ -65,3 +65,14 @@ variable "cloudwatch_retention_days" {
   type        = number
   default     = 3
 }
+
+# Telegram Bot
+variable "telegram_bot_token" {
+  description = "The token for the Telegram bot"
+  type        = string
+}
+
+variable "telegram_chat_id" {
+  description = "The chat ID for the Telegram bot"
+  type        = string
+}

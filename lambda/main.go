@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -249,6 +250,34 @@ func handleResponse(statusCode int, data interface{}, err error) Response {
 	}
 }
 
+func sendTelegramNotification(message string) {
+	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	chatID := os.Getenv("TELEGRAM_CHAT_ID")
+
+	if botToken == "" || chatID == "" {
+		log.Printf("⚠️ TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set")
+		return
+	}
+
+	telegramAPI := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken)
+
+	data := url.Values{
+		"chat_id": {chatID},
+		"text":    {message},
+	}
+
+	resp, err := http.PostForm(telegramAPI, data)
+	if err != nil {
+		log.Printf("⚠️ Error sending telegram notification: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("⚠️ Telegram API returned non-200 status code: %d", resp.StatusCode)
+	}
+}
+
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
 	log.Printf("👤 User IP: %s", request.RequestContext.Identity.SourceIP)
 
@@ -270,6 +299,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (Respon
 		return handleResponse(500, nil, err), nil
 	}
 
+	go sendTelegramNotification(fmt.Sprintf("🔗 Requested word: %s --- 👤 User IP: %s", validatedWord, request.RequestContext.Identity.SourceIP))
 	output, err := bdrClient.InvokeModel(ctx, &bedrockruntime.InvokeModelInput{
 		ModelId:     aws.String("amazon.nova-lite-v1:0"),
 		ContentType: aws.String("application/json"),
