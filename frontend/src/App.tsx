@@ -87,11 +87,12 @@ export default function App() {
     if (examples.length === 0) return;
 
     const textToCopy = examples
-      .map(
-        (example) =>
-          `${example.target}\n${example.pronunciation}\n${example.english}\n`
+      .map((example) =>
+        detectedLanguage.toLowerCase() === 'english'
+          ? `${example.target}`
+          : `${example.target}\n${example.pronunciation}\n${example.english}`
       )
-      .join('\n');
+      .join('\n\n');
 
     navigator.clipboard
       .writeText(textToCopy)
@@ -275,10 +276,14 @@ export default function App() {
                       <div className="text-lg font-medium">
                         {example.target}
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {example.pronunciation}
-                      </div>
-                      <div className="pt-2 border-t">{example.english}</div>
+                      {detectedLanguage.toLowerCase() !== 'english' && (
+                        <>
+                          <div className="text-sm text-muted-foreground">
+                            {example.pronunciation}
+                          </div>
+                          <div className="pt-2 border-t">{example.english}</div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
