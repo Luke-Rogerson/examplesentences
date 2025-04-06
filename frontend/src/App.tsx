@@ -319,6 +319,15 @@ export default function App() {
             </svg>
             View Source
           </a>
+          <span className="text-muted-foreground mx-2">•</span>
+          <a
+            href="https://github.com/Luke-Rogerson/examplesentences/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-foreground hover:text-primary transition-colors duration-200"
+          >
+            Report an Issue
+          </a>
         </div>
       </footer>
     </div>
