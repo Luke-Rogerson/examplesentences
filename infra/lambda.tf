@@ -13,6 +13,7 @@ resource "aws_lambda_function" "bedrock_sentences" {
       MODEL_ID           = var.model_id
       TELEGRAM_BOT_TOKEN = var.telegram_bot_token
       TELEGRAM_CHAT_ID   = var.telegram_chat_id
+      BLOCKED_IPS        = var.blocked_ips
     }
   }
 }

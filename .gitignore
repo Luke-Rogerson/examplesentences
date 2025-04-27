@@ -38,3 +38,7 @@ terraform.rc
 *.log 
 
 lambda.zip
+
+*venv
+
+.makerc

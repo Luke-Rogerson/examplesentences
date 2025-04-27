@@ -76,3 +76,8 @@ variable "telegram_chat_id" {
   description = "The chat ID for the Telegram bot"
   type        = string
 }
+
+variable "blocked_ips" {
+  description = "IP blocklist (comma-separated)"
+  type        = string
+}

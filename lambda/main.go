@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -55,8 +56,9 @@ type Response struct {
 }
 
 var (
-	awsConfig aws.Config
-	bdrClient *bedrockruntime.Client
+	awsConfig  aws.Config
+	bdrClient  *bedrockruntime.Client
+	blockedIPs map[string]bool
 )
 
 const (
@@ -112,6 +114,27 @@ func init() {
 		panic(err)
 	}
 	bdrClient = bedrockruntime.NewFromConfig(awsConfig)
+	blockedIPs = loadBlockedIPs()
+}
+
+func loadBlockedIPs() map[string]bool {
+	ipList := make(map[string]bool)
+
+	blockedIPsEnv := os.Getenv("BLOCKED_IPS")
+	if blockedIPsEnv != "" {
+		for _, ip := range strings.Split(blockedIPsEnv, ",") {
+			trimmedIP := strings.TrimSpace(ip)
+			if trimmedIP != "" {
+				ipList[trimmedIP] = true
+			}
+		}
+	}
+
+	return ipList
+}
+
+func isIPBlocked(ip string) bool {
+	return blockedIPs[ip]
 }
 
 func validateWord(word string) (string, error) {
@@ -279,7 +302,26 @@ func sendTelegramNotification(message string) {
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
-	log.Printf("👤 User IP: %s", request.RequestContext.Identity.SourceIP)
+	sourceIP := request.RequestContext.Identity.SourceIP
+	log.Printf("👤 User IP: %s", sourceIP)
+
+	if isIPBlocked(sourceIP) {
+		log.Printf("🚫 Blocked request from IP: %s", sourceIP)
+
+		done := make(chan bool, 1)
+		go func() {
+			sendTelegramNotification(fmt.Sprintf("🚫🚫🚫 Blocked request from IP: %s --- 👤 User IP: https://whatismyipaddress.com/ip/%s", sourceIP, sourceIP))
+			done <- true
+		}()
+		select {
+		case <-done:
+			return handleResponse(500, nil, fmt.Errorf("something went wrong")), nil
+		case <-time.After(2 * time.Second):
+			log.Printf("⚠️ Block notification timed out")
+		}
+
+		return handleResponse(500, nil, fmt.Errorf("something went wrong")), nil
+	}
 
 	word := request.PathParameters["word"]
 
