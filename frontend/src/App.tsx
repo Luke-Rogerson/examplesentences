@@ -40,6 +40,22 @@ export default function App() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    // Handle GitHub Pages redirect
+    const redirect = sessionStorage.getItem('redirect');
+    if (redirect) {
+      sessionStorage.removeItem('redirect');
+      const url = new URL(redirect);
+      if (url.pathname === '/search') {
+        const q = url.searchParams.get('q');
+        if (q) {
+          window.history.replaceState({}, '', `/search?q=${q}`);
+          setSearchTerm(q);
+          performSearch(q);
+          return;
+        }
+      }
+    }
+
     const currentPath = window.location.pathname;
     const urlParams = new URLSearchParams(window.location.search);
     const queryParam = urlParams.get('q');
