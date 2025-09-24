@@ -3,7 +3,7 @@
 import type React from 'react';
 
 import { Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ThemeToggle } from './components/theme-toggle';
 import { Button } from './components/ui/button';
@@ -39,26 +39,37 @@ export default function App() {
   const [detectedLanguage, setDetectedLanguage] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParam = urlParams.get('q');
+
+    if (currentPath !== '/' && currentPath !== '/search') {
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+
+    if (queryParam) {
+      setSearchTerm(queryParam);
+      performSearch(queryParam);
+    }
+  }, []);
+
+  const performSearch = async (term: string) => {
+    if (!term.trim()) return;
+
     setExamples([]);
-
-    if (!searchTerm.trim()) return;
-
     setLoading(true);
     setError('');
-    setLastSearchedTerm(searchTerm);
+    setLastSearchedTerm(term);
 
     try {
-      const response = await fetch(
-        `${API_URL}/${encodeURIComponent(searchTerm)}`,
-        {
-          headers: {
-            // This is only needed as I wanted to enforce a global daily quota and this is the easiest way to do it in API Gateway. API key is not really a secret.
-            'x-api-key': API_KEY,
-          },
-        }
-      );
+      const response = await fetch(`${API_URL}/${encodeURIComponent(term)}`, {
+        headers: {
+          // This is only needed as I wanted to enforce a global daily quota and this is the easiest way to do it in API Gateway. API key is not really a secret.
+          'x-api-key': API_KEY,
+        },
+      });
 
       const data: Response = await response.json();
 
@@ -80,6 +91,19 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!searchTerm.trim()) return;
+
+    const url = new URL(window.location.href);
+    url.pathname = '/search';
+    url.searchParams.set('q', searchTerm);
+    window.history.pushState({}, '', url.toString());
+
+    await performSearch(searchTerm);
   };
 
   // Function to copy all examples to clipboard
