@@ -71,6 +71,14 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (lastSearchedTerm) {
+      document.title = `${lastSearchedTerm} | Example Sentences`;
+      return;
+    }
+    document.title = 'Word Usage in Context | Example Sentences';
+  }, [lastSearchedTerm]);
+
   const performSearch = async (term: string) => {
     if (!term.trim()) return;
 
@@ -130,7 +138,7 @@ export default function App() {
       .map((example) =>
         detectedLanguage.toLowerCase() === 'english'
           ? `${example.target}`
-          : `${example.target}\n${example.pronunciation}\n${example.english}`
+          : `${example.target}\n${example.pronunciation}\n${example.english}`,
       )
       .join('\n\n');
 
@@ -156,7 +164,21 @@ export default function App() {
               <ThemeToggle />
             </div>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Example Sentences
+              <a
+                href="/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSearchTerm('');
+                  setLastSearchedTerm('');
+                  setExamples([]);
+                  setError('');
+                  setDetectedLanguage('');
+                  window.history.pushState({}, '', '/');
+                }}
+                className="hover:text-primary transition-colors"
+              >
+                Example Sentences
+              </a>
             </h1>
             <p className="text-muted-foreground">
               Enter a word or phrase in any language to see usage examples
@@ -333,7 +355,7 @@ export default function App() {
         </div>
       </main>
       <footer className="py-6 text-center text-sm bg-background/80 backdrop-blur-sm shadow-md">
-        <div className="container mx-auto px-4 max-w-4xl flex items-center justify-center gap-2">
+        <nav className="container mx-auto px-4 max-w-4xl flex items-center justify-center gap-2">
           <a
             href="https://www.linkedin.com/in/lukerogerson/"
             target="_blank"
@@ -363,7 +385,7 @@ export default function App() {
             </svg>
             View Source
           </a>
-        </div>
+        </nav>
       </footer>
     </div>
   );
