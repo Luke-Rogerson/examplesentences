@@ -1,16 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>"
-    />
+    <link rel="icon" href="/speech-balloon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Example Sentences</title>
+    <title>Word Usage in Context | Example Sentences</title>
+    <meta
+      name="description"
+      content="Find real example sentences for any word or phrase in multiple languages. See how words are used in context to improve understanding and fluency."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://examplesentences.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Example Sentences" />
+    <meta
+      property="og:title"
+      content="Word Usage in Context | Example Sentences"
+    />
+    <meta
+      property="og:description"
+      content="Find real example sentences for any word or phrase in multiple languages. See how words are used in context to improve understanding and fluency."
+    />
+    <meta property="og:url" content="https://examplesentences.com/" />
+    <meta
+      property="og:image"
+      content="https://examplesentences.com/speech-balloon.png"
+    />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Example Sentences",
+        "url": "https://examplesentences.com",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://examplesentences.com/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
   </body>
 </html>
